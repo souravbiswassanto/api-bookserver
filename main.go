@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"log"
 	"net/http"
+	"strings"
 )
 
 //func getBooks
@@ -31,7 +32,7 @@ type AuthorDB map[string]Author
 var BookList BookDB
 var AuthorList AuthorDB
 
-func init() {
+func Init() {
 	author1 := Author{
 		Name:      "temp author 1",
 		BookCount: "5",
@@ -79,21 +80,65 @@ func init() {
 	BookList[data1.ISBN] = data1
 	BookList[data2.ISBN] = data2
 	BookList[data3.ISBN] = data3
-
+	return
 }
 
-func getBooks(w http.ResponseWriter, r *http.Request) {
-	//w.Header().Set("Content-Type", "application/json")
-	//var book Book
-	//json.NewDecoder(r.Body).Decode(&book)
-	//json.NewEncoder(w).Encode(book)
-
+func GetBooks(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(BookList)
 
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func BookGeneralized(w http.ResponseWriter, r *http.Request) {
+	//w.Header().Set("Content-Type", "application/json")
+	var readString []string
+	for _, str := range BookList {
+		readString = append(readString, str.Name)
+	}
+	resp := strings.Join(readString, "\n")
+	if resp == "" {
+		http.Error(w, "No Books found", http.StatusNotFound)
+		return
+	}
+	w.Write([]byte(resp))
+}
+
+func NewBook(w http.ResponseWriter, r *http.Request) {
+	var book Book
+	err := json.NewDecoder(r.Body).Decode(&book)
+	if err != nil {
+		http.Error(w, "Cannot Decode the data", http.StatusBadRequest)
+		return
+	}
+	if len(book.Name) == 0 || len(book.ISBN) == 0 || len(book.Authors) == 0 {
+		http.Error(w, "Invalid Data Entry", http.StatusBadRequest)
+		return
+	}
+	flag := false
+	for _, data := range book.Authors {
+		if len(data.Name) == 0 {
+			flag = true
+			break
+		}
+	}
+	if flag == true {
+		http.Error(w, "Author name can't be empty", http.StatusBadRequest)
+		return
+	}
+	BookList[book.ISBN] = book
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Data added successfully"))
+	BookList[book.ISBN] = book
+	//GetBooks(w, r)
 }
 
 func main() {
-	init()
+	Init()
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -103,7 +148,9 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Route("/books", func(r chi.Router) {
-			r.Get("/", getBooks)
+			r.Get("/", GetBooks)
+			r.Get("/general", BookGeneralized)
+			r.Post("/", NewBook)
 		})
 	})
 
