@@ -37,13 +37,13 @@ func Init() {
 		Name:      "temp author 1",
 		BookCount: "5",
 		Age:       "45",
-		Books:     []string{"ISBN 1", "ISBN 2"},
+		Books:     []string{"ISBN1", "ISBN2"},
 	}
 	author2 := Author{
 		Name:      "temp author 2",
 		BookCount: "5",
 		Age:       "45",
-		Books:     []string{"ISBN 3", "ISBN 4"},
+		Books:     []string{"ISBN3", "ISBN4"},
 	}
 
 	data1 := Book{
@@ -52,7 +52,7 @@ func Init() {
 			author1,
 			author2,
 		},
-		ISBN:  "ISBN 1",
+		ISBN:  "ISBN1",
 		Genre: "Fiction",
 		Pub:   "Demo",
 	}
@@ -62,7 +62,7 @@ func Init() {
 		Authors: []Author{
 			author1,
 		},
-		ISBN:  "ISBN 2",
+		ISBN:  "ISBN2",
 		Genre: "Fiction",
 		Pub:   "Demo",
 	}
@@ -72,7 +72,7 @@ func Init() {
 		Authors: []Author{
 			author2,
 		},
-		ISBN:  "ISBN 3",
+		ISBN:  "ISBN3",
 		Genre: "Fiction",
 		Pub:   "Demo",
 	}
@@ -137,6 +137,24 @@ func NewBook(w http.ResponseWriter, r *http.Request) {
 	//GetBooks(w, r)
 }
 
+func DeleteBook(w http.ResponseWriter, r *http.Request) {
+	// receiving isbn of the book to be deleted
+	var ISBN string
+	ISBN = chi.URLParam(r, "ISBN")
+	if len(ISBN) == 0 {
+		http.Error(w, "ISBN is wrong", http.StatusBadRequest)
+		return
+	}
+	_, ok := BookList[ISBN]
+	if ok == false {
+		http.Error(w, "ISBN is wrong", http.StatusBadRequest)
+		return
+	}
+
+
+}
+
+
 func main() {
 	Init()
 	r := chi.NewRouter()
@@ -151,6 +169,9 @@ func main() {
 			r.Get("/", GetBooks)
 			r.Get("/general", BookGeneralized)
 			r.Post("/", NewBook)
+			r.Group(func(r chi.Router)) {
+				r.Delete("/{ISBN}", DeleteBook)
+			}
 		})
 	})
 
