@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"log"
@@ -12,71 +11,102 @@ import (
 //func getBooks
 
 type Author struct {
-	//name string `json:"name,omitempty"`
-	//bookCount string `json:"book_count"`
-	age string `json:"age"`
-	//books     []string `json:"books"`
+	Name      string   `json:"name,omitempty"`
+	BookCount string   `json:"book_count"`
+	Age       string   `json:"age"`
+	Books     []string `json:"books"`
 }
 
 type Book struct {
-	name    string   `json:"book_name,omitempty"`
-	authors []Author `json:"authors"`
-	isbn    string   `json:"isbn,omitempty"`
-	genre   string   `json:"genre"`
+	Name    string   `json:"book_name,omitempty"`
+	Authors []Author `json:"authors"`
+	ISBN    string   `json:"isbn,omitempty"`
+	Genre   string   `json:"genre"`
+	Pub     string   `json:"publisher"`
 }
 
-type bookDB map[string]Book
-type authorDB map[string]Author
+type BookDB map[string]Book
+type AuthorDB map[string]Author
 
-var bookList bookDB
-var authorList authorDB
+var BookList BookDB
+var AuthorList AuthorDB
 
-type test struct {
-	tmp string `json:"tmp"`
-}
+func init() {
+	author1 := Author{
+		Name:      "temp author 1",
+		BookCount: "5",
+		Age:       "45",
+		Books:     []string{"ISBN 1", "ISBN 2"},
+	}
+	author2 := Author{
+		Name:      "temp author 2",
+		BookCount: "5",
+		Age:       "45",
+		Books:     []string{"ISBN 3", "ISBN 4"},
+	}
 
-func Ping(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	v := test{tmp: "hello"}
-	fmt.Println(v.tmp)
-	w.Write([]byte("Pong"))
-	json.NewEncoder(w).Encode(v)
+	data1 := Book{
+		Name: "temp book 1",
+		Authors: []Author{
+			author1,
+			author2,
+		},
+		ISBN:  "ISBN 1",
+		Genre: "Fiction",
+		Pub:   "Demo",
+	}
 
-	return
+	data2 := Book{
+		Name: "temp book 2",
+		Authors: []Author{
+			author1,
+		},
+		ISBN:  "ISBN 2",
+		Genre: "Fiction",
+		Pub:   "Demo",
+	}
+
+	data3 := Book{
+		Name: "temp book 3",
+		Authors: []Author{
+			author2,
+		},
+		ISBN:  "ISBN 3",
+		Genre: "Fiction",
+		Pub:   "Demo",
+	}
+	BookList = make(BookDB)
+	BookList[data1.ISBN] = data1
+	BookList[data2.ISBN] = data2
+	BookList[data3.ISBN] = data3
+
 }
 
 func getBooks(w http.ResponseWriter, r *http.Request) {
 	//w.Header().Set("Content-Type", "application/json")
-	//body, _ := io.ReadAll(r.Body)
-	//fmt.Println("Request body:", string(body))
-	//fmt.Println(book.age)
+	//var book Book
+	//json.NewDecoder(r.Body).Decode(&book)
 	//json.NewEncoder(w).Encode(book)
-	var book Author
 
-	json.NewDecoder(r.Body).Decode(&book)
-	w.WriteHeader(http.StatusAccepted)
-	w.Write([]byte("appscode"))
-	//json.NewEncoder(w).Encode(v)
-	fmt.Println("========###end###=====")
+	err := json.NewEncoder(w).Encode(BookList)
+
 }
 
 func main() {
+	init()
 	r := chi.NewRouter()
+
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	r.Get("/book", Ping)
-	r.Get("/books", getBooks)
-	/*
-		r.Group(func(r chi.Router) {
-			r.Route("/books", func(r chi.Router) {
-				r.Get("/", getBooks)
-			})
+	r.Group(func(r chi.Router) {
+		r.Route("/books", func(r chi.Router) {
+			r.Get("/", getBooks)
 		})
-	*/
+	})
+
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		log.Fatalln(err)
 	}
