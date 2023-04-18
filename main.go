@@ -7,24 +7,33 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/lestrrat-go/jwx/jwa"
-	"github.com/lestrrat-go/jwx/jwt"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 )
 
-var jwtkey = []byte("this_is_a_secret_key")
+// Secret is the secret key used for java web token verify signature
+// see this video for better understanding
+// https://www.youtube.com/watch?v=7Q17ubqLfaM&t=238s
+var Secret = []byte("this_is_a_secret_key")
 var tokenAuth *jwtauth.JWTAuth
-var tokenString string
-var token jwt.Token
 
+// Author struct holds common information of an Author
 type Author struct {
-	Name      string `json:"name,omitempty"`
-	BookCount string `json:"book_count"`
-	Age       string `json:"age"`
+	Name string `json:"name,omitempty"`
+	Home string `json:"home"`
+	Age  string `json:"age"`
 }
 
+// AuthorBooks Use Composition to store Books
+// ISBN which can be different for each
+type AuthorBooks struct {
+	Author `json:"author"`
+	Books  []string `json:"books"`
+}
+
+// Book store Book information and the Authors who authored it
 type Book struct {
 	Name    string   `json:"book_name,omitempty"`
 	Authors []Author `json:"authors"`
@@ -33,46 +42,53 @@ type Book struct {
 	Pub     string   `json:"publisher"`
 }
 
-type AuthorBooks struct {
-	Author `json:"author"`
-	Books  []string `json:"books"`
-}
-
+// Credentials Stores Login Credentials
 type Credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
 
+// BookDB AuthorDB CredDB are databases
 type BookDB map[string]Book
 type AuthorDB map[string]AuthorBooks
 type CredDB map[string]string
 
+// BookList AuthorList CredList are DB Instances
 var BookList BookDB
 var AuthorList AuthorDB
 var CredList CredDB
 
+// CapToSmall converts string from Capital to Small
+// RmSpace Removes Spaces from string
+// SmStr uses above two function to remake a string
+// Which removes spaces and also apply CapToSmall
 func CapToSmall(s string) string {
 	return strings.ToLower(s)
 }
-
 func RmSpace(s string) string {
 	return strings.ReplaceAll(s, " ", "")
 }
-
 func SmStr(s string) string {
 	return CapToSmall(RmSpace(s))
 }
 
+// InitToken initiates the algorithm that we will use for jwt
+// It also initiates the secret token
+func InitToken() {
+	tokenAuth = jwtauth.New(string(jwa.HS256), Secret, nil)
+}
+
+// Init initiates dummy data
 func Init() {
 	author1 := Author{
-		Name:      "temp author 1",
-		BookCount: "5",
-		Age:       "45",
+		Name: "temp author 1",
+		Home: "America",
+		Age:  "45",
 	}
 	author2 := Author{
-		Name:      "temp author 2",
-		BookCount: "5",
-		Age:       "45",
+		Name: "temp author 2",
+		Home: "Bangladesh",
+		Age:  "45",
 	}
 
 	data1 := Book{
@@ -96,16 +112,6 @@ func Init() {
 		Pub:   "Demo",
 	}
 
-	data3 := Book{
-		Name: "temp book 3",
-		Authors: []Author{
-			author2,
-		},
-		ISBN:  "ISBN3",
-		Genre: "Fiction",
-		Pub:   "Demo",
-	}
-
 	User := Credentials{
 		Username: "user",
 		Password: "pass",
@@ -123,21 +129,19 @@ func Init() {
 	var ab2 AuthorBooks
 	ab2.Author = author2
 	ab2.Books = append(ab2.Books, data1.ISBN)
-	ab2.Books = append(ab2.Books, data3.ISBN)
 
 	AuthorList[SmStr(author1.Name)] = ab1
 	AuthorList[SmStr(author2.Name)] = ab2
 
 	BookList[data1.ISBN] = data1
 	BookList[data2.ISBN] = data2
-	BookList[data3.ISBN] = data3
 
 	CredList[User.Username] = User.Password
-	tokenAuth = jwtauth.New(string(jwa.HS256), jwtkey, nil)
+	InitToken()
 	return
 }
 
-func GetBooks(w http.ResponseWriter, r *http.Request) {
+func GetBooks(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(BookList)
 
@@ -148,7 +152,7 @@ func GetBooks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func BookGeneralized(w http.ResponseWriter, r *http.Request) {
+func BookGeneralized(w http.ResponseWriter, _ *http.Request) {
 	//w.Header().Set("Content-Type", "application/json")
 	var readString []string
 	for _, str := range BookList {
@@ -159,7 +163,12 @@ func BookGeneralized(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No Books found", http.StatusNotFound)
 		return
 	}
-	w.Write([]byte(resp))
+	_, err := w.Write([]byte(resp))
+
+	if err != nil {
+		http.Error(w, "Cannot Write Response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func NewBook(w http.ResponseWriter, r *http.Request) {
@@ -185,8 +194,6 @@ func NewBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	BookList[book.ISBN] = book
-
 	for _, author := range book.Authors {
 		name := author.Name
 		_, ok := AuthorList[SmStr(name)]
@@ -202,7 +209,12 @@ func NewBook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Data added successfully"))
+	_, err = w.Write([]byte("Data added successfully"))
+	if err != nil {
+		http.Error(w, "Can not Write Data", http.StatusInternalServerError)
+		return
+	}
+
 	BookList[book.ISBN] = book
 	//GetBooks(w, r)
 }
@@ -236,7 +248,11 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Data Deleted successfully"))
+	_, err := w.Write([]byte("Data added successfully"))
+	if err != nil {
+		http.Error(w, "Can not Write Data", http.StatusInternalServerError)
+		return
+	}
 	fmt.Println("hello")
 
 }
@@ -307,7 +323,11 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	BookList[ISBN] = updBook
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Data Updated successfully"))
+	_, err = w.Write([]byte("Data added successfully"))
+	if err != nil {
+		http.Error(w, "Can not Write Data", http.StatusInternalServerError)
+		return
+	}
 	fmt.Println("hello update func")
 
 }
@@ -336,7 +356,7 @@ func GetSingleBook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func GetAuthors(w http.ResponseWriter, r *http.Request) {
+func GetAuthors(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	err := json.NewEncoder(w).Encode(AuthorList)
 
@@ -393,11 +413,11 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Password not matching", http.StatusBadRequest)
 		return
 	}
-	fmt.Println("chekc")
 	et := time.Now().Add(15 * time.Minute)
 	_, tokenString, err := tokenAuth.Encode(map[string]interface{}{
 		"aud": "Saurov Biswas",
 		"exp": et.Unix(),
+		// Here few more registered field and also self-driven field can be added
 	})
 	fmt.Println(tokenString)
 	if err != nil {
@@ -412,7 +432,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func Logout(w http.ResponseWriter, r *http.Request) {
+func Logout(w http.ResponseWriter, _ *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:    "jwt",
 		Expires: time.Now(),
@@ -434,7 +454,7 @@ func main() {
 		r.Route("/books", func(r chi.Router) {
 			r.Get("/", GetBooks)
 			r.Get("/general", BookGeneralized)
-			r.Get("/getbook/{ISBN}", GetSingleBook)
+			r.Get("/get/{ISBN}", GetSingleBook)
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(tokenAuth))
 				r.Use(jwtauth.Authenticator)
