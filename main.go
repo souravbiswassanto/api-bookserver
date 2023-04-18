@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/jwtauth/v5"
+	"github.com/lestrrat-go/jwx/jwa"
+	"github.com/lestrrat-go/jwx/jwt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
-//func getBooks
-
-type AuthorBooks struct {
-	Author `json:"author"`
-	Books  []string `json:"books"`
-}
+var jwtkey = []byte("this_is_a_secret_key")
+var tokenAuth *jwtauth.JWTAuth
+var tokenString string
+var token jwt.Token
 
 type Author struct {
 	Name      string `json:"name,omitempty"`
@@ -31,11 +33,23 @@ type Book struct {
 	Pub     string   `json:"publisher"`
 }
 
+type AuthorBooks struct {
+	Author `json:"author"`
+	Books  []string `json:"books"`
+}
+
+type Credentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 type BookDB map[string]Book
 type AuthorDB map[string]AuthorBooks
+type CredDB map[string]string
 
 var BookList BookDB
 var AuthorList AuthorDB
+var CredList CredDB
 
 func CapToSmall(s string) string {
 	return strings.ToLower(s)
@@ -92,8 +106,14 @@ func Init() {
 		Pub:   "Demo",
 	}
 
+	User := Credentials{
+		Username: "user",
+		Password: "pass",
+	}
+
 	BookList = make(BookDB)
 	AuthorList = make(AuthorDB)
+	CredList = make(CredDB)
 
 	var ab1 AuthorBooks
 	ab1.Author = author1
@@ -111,6 +131,9 @@ func Init() {
 	BookList[data1.ISBN] = data1
 	BookList[data2.ISBN] = data2
 	BookList[data3.ISBN] = data3
+
+	CredList[User.Username] = User.Password
+	tokenAuth = jwtauth.New(string(jwa.HS256), jwtkey, nil)
 	return
 }
 
@@ -350,6 +373,53 @@ func GetSingleAuthor(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func Login(w http.ResponseWriter, r *http.Request) {
+	var cred Credentials
+	err := json.NewDecoder(r.Body).Decode(&cred)
+	fmt.Println(cred)
+	if err != nil {
+		http.Error(w, "Can not Decode the data", http.StatusBadRequest)
+		return
+	}
+
+	password, okay := CredList[cred.Username]
+
+	if okay == false {
+		http.Error(w, "Username do not exist", http.StatusBadRequest)
+		return
+	}
+
+	if password != cred.Password {
+		http.Error(w, "Password not matching", http.StatusBadRequest)
+		return
+	}
+	fmt.Println("chekc")
+	et := time.Now().Add(15 * time.Minute)
+	_, tokenString, err := tokenAuth.Encode(map[string]interface{}{
+		"aud": "Saurov Biswas",
+		"exp": et.Unix(),
+	})
+	fmt.Println(tokenString)
+	if err != nil {
+		http.Error(w, "Can not generate jwt", http.StatusInternalServerError)
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:    "jwt",
+		Value:   tokenString,
+		Expires: et,
+	})
+	w.WriteHeader(http.StatusOK)
+}
+
+func Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:    "jwt",
+		Expires: time.Now(),
+	})
+	w.WriteHeader(http.StatusOK)
+}
+
 func main() {
 	Init()
 	r := chi.NewRouter()
@@ -358,13 +428,16 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
-
+	r.Post("/login", Login)
+	r.Post("/logout", Logout)
 	r.Group(func(r chi.Router) {
 		r.Route("/books", func(r chi.Router) {
 			r.Get("/", GetBooks)
 			r.Get("/general", BookGeneralized)
 			r.Get("/getbook/{ISBN}", GetSingleBook)
 			r.Group(func(r chi.Router) {
+				r.Use(jwtauth.Verifier(tokenAuth))
+				r.Use(jwtauth.Authenticator)
 				r.Post("/", NewBook)
 				r.Delete("/{ISBN}", DeleteBook)
 				r.Put("/{ISBN}", UpdateBook)
