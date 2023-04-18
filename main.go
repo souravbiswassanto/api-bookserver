@@ -289,6 +289,67 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func GetSingleBook(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var ISBN string
+	ISBN = chi.URLParam(r, "ISBN")
+	if len(ISBN) == 0 {
+		http.Error(w, "ISBN is wrong", http.StatusBadRequest)
+		return
+	}
+	_, ok := BookList[ISBN]
+	if ok == false {
+		http.Error(w, "ISBN is wrong", http.StatusBadRequest)
+		return
+	}
+	var sb Book
+	sb = BookList[ISBN]
+	err := json.NewEncoder(w).Encode(sb)
+	fmt.Println(sb)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func GetAuthors(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(AuthorList)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func GetSingleAuthor(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var AuthorName string
+	AuthorName = chi.URLParam(r, "AuthorName")
+	AuthorName = SmStr(AuthorName)
+	fmt.Println(AuthorName)
+	if len(AuthorName) == 0 {
+		http.Error(w, "AuthorName is wrong", http.StatusBadRequest)
+		return
+	}
+	_, ok := AuthorList[AuthorName]
+	if ok == false {
+		http.Error(w, "AuthorName is wrong", http.StatusBadRequest)
+		return
+	}
+	var sa AuthorBooks
+	sa = AuthorList[SmStr(AuthorName)]
+	err := json.NewEncoder(w).Encode(sa)
+	fmt.Println(sa)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func main() {
 	Init()
 	r := chi.NewRouter()
@@ -302,12 +363,16 @@ func main() {
 		r.Route("/books", func(r chi.Router) {
 			r.Get("/", GetBooks)
 			r.Get("/general", BookGeneralized)
-
+			r.Get("/getbook/{ISBN}", GetSingleBook)
 			r.Group(func(r chi.Router) {
 				r.Post("/", NewBook)
 				r.Delete("/{ISBN}", DeleteBook)
 				r.Put("/{ISBN}", UpdateBook)
 			})
+		})
+		r.Route("/authors", func(r chi.Router) {
+			r.Get("/", GetAuthors)
+			r.Get("/{AuthorName}", GetSingleAuthor)
 		})
 	})
 
