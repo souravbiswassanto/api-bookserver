@@ -51,10 +51,12 @@ func NewBook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Cannot Decode the data", http.StatusBadRequest)
 		return
 	}
-	if len(book.Name) == 0 || len(book.ISBN) == 0 || len(book.Authors) == 0 {
+	_, okay := dataHandler.BookList[book.ISBN]
+	if len(book.Name) == 0 || len(book.ISBN) == 0 || len(book.Authors) == 0 || okay == true {
 		http.Error(w, "Invalid Data Entry", http.StatusBadRequest)
 		return
 	}
+
 	flag := false
 	for _, data := range book.Authors {
 		if len(data.Name) == 0 {
