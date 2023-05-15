@@ -38,6 +38,9 @@ type CredDB map[string]string
 
 // BookList AuthorList CredList are DB Instances
 var BookList BookDB
+
+// TODO : var MyList []Book
+
 var AuthorList AuthorDB
 var CredList CredDB
 
@@ -107,12 +110,12 @@ func Init() {
 // RmSpace Removes Spaces from string
 // SmStr uses above two function to remake a string
 // Which removes spaces and also apply CapToSmall
-func CapToSmall(s string) string {
+func capToSmall(s string) string {
 	return strings.ToLower(s)
 }
-func RmSpace(s string) string {
+func rmSpace(s string) string {
 	return strings.ReplaceAll(s, " ", "")
 }
 func SmStr(s string) string {
-	return CapToSmall(RmSpace(s))
+	return capToSmall(rmSpace(s))
 }

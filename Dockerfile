@@ -1,6 +1,8 @@
 # pull the base image
 
 FROM golang:latest AS builder
+
+# TODO use specific version
 # create base working directory inside container
 WORKDIR /app
 # It is a best practice to copy these files separately

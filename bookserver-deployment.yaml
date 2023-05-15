@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: testdeployment
+  name: bookserverdeployment
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: test
+  template:
+    metadata:
+      labels:
+        app: test
+    spec:
+      containers:
+        - image: souravbiswassanto/bookserver
+          name: test
+          ports:
+            - containerPort: 8081
+              name: http
+              protocol: TCP

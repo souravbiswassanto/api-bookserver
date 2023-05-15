@@ -16,6 +16,12 @@ import (
 
 func GetBooks(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	//b, err := json.Marshal(dataHandler.BookList)
+	//if err != nil {
+	//
+	//}
+	//w.Write(b)
 	err := json.NewEncoder(w).Encode(dataHandler.BookList)
 
 	if err != nil {
@@ -123,13 +129,11 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte("Data added successfully"))
+	_, err := w.Write([]byte("Data deleted successfully"))
 	if err != nil {
 		http.Error(w, "Can not Write Data", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("hello")
-
 }
 
 func UpdateBook(w http.ResponseWriter, r *http.Request) {
@@ -198,13 +202,11 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 	}
 	dataHandler.BookList[ISBN] = updBook
 	w.WriteHeader(http.StatusOK)
-	_, err = w.Write([]byte("Data added successfully"))
+	_, err = w.Write([]byte("Data updated successfully"))
 	if err != nil {
 		http.Error(w, "Can not Write Data", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("hello update func")
-
 }
 
 func GetSingleBook(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +224,7 @@ func GetSingleBook(w http.ResponseWriter, r *http.Request) {
 	}
 	var sb dataHandler.Book
 	sb = dataHandler.BookList[ISBN]
+	// Check if exists
 	err := json.NewEncoder(w).Encode(sb)
 	fmt.Println(sb)
 	if err != nil {

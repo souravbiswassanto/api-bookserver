@@ -59,6 +59,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		Expires: et,
 	})
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Login Successful"))
 }
 
 func Logout(w http.ResponseWriter, _ *http.Request) {
